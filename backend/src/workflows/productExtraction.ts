@@ -1,8 +1,21 @@
-import { StateGraph, END } from '@langchain/langgraph';
+import { StateGraph, END, Annotation } from '@langchain/langgraph';
 import { WorkflowState, ProductInfo, ExtractedFrame, SegmentedImage, EnhancedImage } from '../types/index.js';
 import { VideoProcessor } from '../utils/video.js';
 import { GeminiClient } from '../utils/gemini.js';
 import { v4 as uuidv4 } from 'uuid';
+
+// Define state annotation for LangGraph
+const GraphState = Annotation.Root({
+  videoUrl: Annotation<string>,
+  videoPath: Annotation<string | undefined>,
+  products: Annotation<ProductInfo[]>,
+  extractedFrames: Annotation<ExtractedFrame[]>,
+  segmentedImages: Annotation<SegmentedImage[]>,
+  enhancedImages: Annotation<EnhancedImage[]>,
+  error: Annotation<string | undefined>,
+});
+
+type GraphStateType = typeof GraphState.State;
 
 export class ProductExtractionWorkflow {
   private videoProcessor: VideoProcessor;
@@ -14,7 +27,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Node 1: Download video and extract frames
-  async downloadAndExtractFrames(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async downloadAndExtractFrames(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       console.log('Step 1: Downloading video and extracting frames...');
 
@@ -37,7 +50,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Node 2: Identify all products in the video
-  async identifyProducts(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async identifyProducts(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       if (state.error) return {};
 
@@ -82,7 +95,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Node 3: Extract best frame for each product
-  async extractKeyFrames(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async extractKeyFrames(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       if (state.error || !state.products || state.products.length === 0) {
         return {};
@@ -139,7 +152,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Node 4: Segment products from frames
-  async segmentProducts(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async segmentProducts(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       if (state.error || !state.extractedFrames || state.extractedFrames.length === 0) {
         return {};
@@ -177,7 +190,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Node 5: Enhance segmented images with different backgrounds
-  async enhanceImages(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async enhanceImages(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       if (state.error || !state.segmentedImages || state.segmentedImages.length === 0) {
         return {};
@@ -223,7 +236,7 @@ export class ProductExtractionWorkflow {
   }
 
   // Cleanup node
-  async cleanup(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  async cleanup(state: GraphStateType): Promise<Partial<GraphStateType>> {
     try {
       if (state.videoPath) {
         await this.videoProcessor.cleanup([state.videoPath]);
@@ -238,17 +251,7 @@ export class ProductExtractionWorkflow {
 
   // Build the workflow graph
   buildWorkflow() {
-    const workflow = new StateGraph<WorkflowState>({
-      channels: {
-        videoUrl: null,
-        videoPath: null,
-        products: null,
-        extractedFrames: null,
-        segmentedImages: null,
-        enhancedImages: null,
-        error: null,
-      },
-    });
+    const workflow = new StateGraph(GraphState);
 
     // Add nodes
     workflow.addNode('downloadAndExtractFrames', this.downloadAndExtractFrames.bind(this));
@@ -258,8 +261,10 @@ export class ProductExtractionWorkflow {
     workflow.addNode('enhanceImages', this.enhanceImages.bind(this));
     workflow.addNode('cleanup', this.cleanup.bind(this));
 
+    // Set entry point
+    workflow.setEntryPoint('downloadAndExtractFrames');
+
     // Define edges
-    workflow.addEdge('__start__', 'downloadAndExtractFrames');
     workflow.addEdge('downloadAndExtractFrames', 'identifyProducts');
     workflow.addEdge('identifyProducts', 'extractKeyFrames');
     workflow.addEdge('extractKeyFrames', 'segmentProducts');
