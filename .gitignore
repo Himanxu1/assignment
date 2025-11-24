@@ -48,3 +48,5 @@ temp/
 # API Keys (safety)
 **/credentials.json
 **/*.key
+.claude
+package-lock.json

@@ -102,13 +102,18 @@ export class ProductExtractionWorkflow {
 
       await this.videoProcessor.cleanup(framePaths);
 
-      const products = Array.from(allProducts.values()).filter(
-        (p) => p.confidence > 50
-      );
+      // Filter products with confidence > 50 and select top 4 with highest confidence
+      const filteredProducts = Array.from(allProducts.values())
+        .filter((p) => p.confidence > 50)
+        .sort((a, b) => b.confidence - a.confidence) // Sort by confidence descending
+        .slice(0, 4); // Take only top 4
+
       console.log(
-        `Identified ${products.length} products:`,
-        products.map((p) => p.name)
+        `Identified ${filteredProducts.length} products (top 4 by confidence):`,
+        filteredProducts.map((p) => `${p.name} (${p.confidence}%)`)
       );
+
+      const products = filteredProducts;
 
       return {
         products,
@@ -243,7 +248,7 @@ export class ProductExtractionWorkflow {
         return {};
       }
 
-      console.log("Step 5: Enhancing product images...");
+      console.log("Step 5: Enhancing product images with AI...");
 
       const enhancedImages: EnhancedImage[] = [];
 
@@ -255,28 +260,25 @@ export class ProductExtractionWorkflow {
 
         console.log(`Enhancing: ${product.name}`);
 
+        // Generate only 1 enhanced image with professional white background
         const enhancements = await this.geminiClient.generateEnhancedImages(
           segmentedImg.segmentedBase64,
           product.name,
-          [
-            "professional white background",
-            "gradient blue background",
-            "lifestyle wooden desk setting",
-          ]
+          ["professional white background"] // Only one style
         );
 
-        for (const enhancement of enhancements) {
+        // Add the single enhanced image
+        if (enhancements.length > 0) {
           enhancedImages.push({
             productId: product.id,
-            style: enhancement.style,
-            enhancedBase64: segmentedImg.segmentedBase64, // In production, would generate actual enhanced image
-            description: enhancement.description,
+            style: enhancements[0].style,
+            enhancedBase64: enhancements[0].enhancedBase64,
+            description: enhancements[0].description,
           });
+          console.log(
+            `✓ Generated AI-enhanced image for ${product.name} with professional white background`
+          );
         }
-
-        console.log(
-          `Generated ${enhancements.length} enhanced versions for ${product.name}`
-        );
       }
 
       return {
@@ -308,7 +310,11 @@ export class ProductExtractionWorkflow {
   buildWorkflow() {
     const workflow = new StateGraph(GraphState);
 
-    // Add nodes
+    /**
+     * This the workflow through which the vedio is downloaded and
+     * then frames are extracted and then the segmentation is done
+     * and then the enhancements of the products is done
+     */
     workflow.addNode(
       "downloadAndExtractFrames",
       this.downloadAndExtractFrames.bind(this)
@@ -320,13 +326,16 @@ export class ProductExtractionWorkflow {
     workflow.addNode("cleanup", this.cleanup.bind(this));
 
     // Define edges
-    workflow.addEdge(START as any, "downloadAndExtractFrames" as any);
-    workflow.addEdge("downloadAndExtractFrames" as any, "identifyProducts" as any);
+    workflow.addEdge(START, "downloadAndExtractFrames" as any);
+    workflow.addEdge(
+      "downloadAndExtractFrames" as any,
+      "identifyProducts" as any
+    );
     workflow.addEdge("identifyProducts" as any, "extractKeyFrames" as any);
     workflow.addEdge("extractKeyFrames" as any, "segmentProducts" as any);
     workflow.addEdge("segmentProducts" as any, "enhanceImages" as any);
     workflow.addEdge("enhanceImages" as any, "cleanup" as any);
-    workflow.addEdge("cleanup" as any, END as any);
+    workflow.addEdge("cleanup" as any, END);
 
     return workflow.compile();
   }

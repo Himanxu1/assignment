@@ -1,13 +1,20 @@
-import ytdl from 'ytdl-core';
-import ffmpeg from 'fluent-ffmpeg';
-import fs from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import ffmpeg from "fluent-ffmpeg";
+import fs from "fs/promises";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { exec } from "child_process";
 
+/**
+ * This is vedioProcessor class
+ * used to create the video and process the video
+ * the main task it to process the video and figure out the segments where the product
+ * is shown and then find the best shot of that product ,
+ *
+ */
 export class VideoProcessor {
   private tempDir: string;
 
-  constructor(tempDir: string = './tmp') {
+  constructor(tempDir: string = "./tmp") {
     this.tempDir = tempDir;
   }
 
@@ -15,58 +22,103 @@ export class VideoProcessor {
     try {
       await fs.mkdir(this.tempDir, { recursive: true });
     } catch (error) {
-      console.error('Error creating temp directory:', error);
+      console.error("Error creating temp directory:", error);
     }
   }
 
   async downloadYouTubeVideo(videoUrl: string): Promise<string> {
     await this.ensureTempDir();
+
     const videoId = uuidv4();
-    const videoPath = path.join(this.tempDir, `${videoId}.mp4`);
+    const outputPath = path.join(this.tempDir, `${videoId}.mp4`);
 
     return new Promise((resolve, reject) => {
-      const stream = ytdl(videoUrl, { quality: 'highest' });
-      const writeStream = require('fs').createWriteStream(videoPath);
+      const command = `yt-dlp -f "bestvideo+bestaudio/best" --merge-output-format mp4 -o "${outputPath}" "${videoUrl}"`;
 
-      stream.pipe(writeStream);
+      console.log("Running:", command);
 
-      writeStream.on('finish', () => resolve(videoPath));
-      writeStream.on('error', reject);
-      stream.on('error', reject);
+      exec(command, (error, stdout, stderr) => {
+        console.log(stdout);
+
+        if (error) {
+          console.error("yt-dlp error:", stderr);
+          return reject(new Error(`yt-dlp failed: ${stderr}`));
+        }
+
+        resolve(outputPath);
+      });
     });
   }
 
-  async extractFrames(videoPath: string, intervals: number[] = [1, 3, 5, 10, 15, 20, 30, 45, 60]): Promise<string[]> {
+  async getVideoDuration(videoPath: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(videoPath, (err, metadata) => {
+        if (err) {
+          return reject(err);
+        }
+        const duration = metadata.format.duration || 0;
+        resolve(duration);
+      });
+    });
+  }
+
+  async extractFrames(
+    videoPath: string,
+    intervals: number[] = [1, 3, 5, 10, 15, 20, 30, 45, 60]
+  ): Promise<string[]> {
     await this.ensureTempDir();
     const framePaths: string[] = [];
 
-    for (const timestamp of intervals) {
-      const framePath = path.join(this.tempDir, `frame_${uuidv4()}_${timestamp}s.jpg`);
+    // Get video duration first
+    const duration = await this.getVideoDuration(videoPath);
+    console.log(`Video duration: ${duration.toFixed(2)}s`);
 
-      await new Promise<void>((resolve, reject) => {
+    // Filter intervals to only include timestamps within video duration
+    // Leave 0.5s buffer at the end to avoid edge cases
+    const validIntervals = intervals.filter(t => t < duration - 0.5);
+
+    if (validIntervals.length === 0) {
+      // If video is very short, extract frames at 10%, 30%, 50%, 70%, 90% of duration
+      const percentages = [0.1, 0.3, 0.5, 0.7, 0.9];
+      validIntervals.push(...percentages.map(p => p * duration));
+    }
+
+    console.log(`Extracting ${validIntervals.length} frames at timestamps:`, validIntervals.map(t => `${t.toFixed(1)}s`).join(', '));
+
+    for (const timestamp of validIntervals) {
+      const framePath = path.join(
+        this.tempDir,
+        `frame_${uuidv4()}_${timestamp.toFixed(1)}s.jpg`
+      );
+
+      await new Promise<void>((resolve) => {
         ffmpeg(videoPath)
           .screenshots({
             timestamps: [timestamp],
             filename: path.basename(framePath),
             folder: this.tempDir,
           })
-          .on('end', () => {
+          .on("end", () => {
             framePaths.push(framePath);
             resolve();
           })
-          .on('error', (err) => {
-            console.error(`Error extracting frame at ${timestamp}s:`, err.message);
+          .on("error", (err) => {
+            console.error(
+              `Error extracting frame at ${timestamp}s:`,
+              err.message
+            );
             resolve(); // Continue even if one frame fails
           });
       });
     }
 
+    console.log(`Successfully extracted ${framePaths.length} frames`);
     return framePaths;
   }
 
   async frameToBase64(framePath: string): Promise<string> {
     const buffer = await fs.readFile(framePath);
-    return buffer.toString('base64');
+    return buffer.toString("base64");
   }
 
   async cleanup(paths: string[]): Promise<void> {
@@ -86,7 +138,7 @@ export class VideoProcessor {
         await fs.unlink(path.join(this.tempDir, file));
       }
     } catch (error) {
-      console.error('Error cleaning temp directory:', error);
+      console.error("Error cleaning temp directory:", error);
     }
   }
 }
