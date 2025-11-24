@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import VideoInput from '@/components/VideoInput';
-import Results from '@/components/Results';
-import { processVideo } from '@/lib/api';
-import { WorkflowState } from '@/lib/types';
+import { useState } from "react";
+import VideoInput from "@/components/VideoInput";
+import Results from "@/components/Results";
+import { processVideo } from "@/lib/api";
+import { WorkflowState } from "@/lib/types";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -22,11 +22,15 @@ export default function Home() {
       if (response.success && response.data) {
         setResults(response.data);
       } else {
-        setError(response.error || 'Failed to process video');
+        setError(response.error || "Failed to process video");
       }
     } catch (err: any) {
-      console.error('Error processing video:', err);
-      setError(err.response?.data?.error || err.message || 'An error occurred while processing the video');
+      console.error("Error processing video:", err);
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          "An error occurred while processing the video"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -37,10 +41,10 @@ export default function Home() {
       <div className="container mx-auto">
         <header className="text-center mb-12">
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            AI Product Image Extractor
+            PixLift
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Extract, segment, and enhance product images from YouTube videos using Google Gemini AI
+            An AI Product Image Extractor Tool
           </p>
         </header>
 
@@ -52,9 +56,7 @@ export default function Home() {
               <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
                 Error Processing Video
               </h3>
-              <p className="text-red-700 dark:text-red-300">
-                {error}
-              </p>
+              <p className="text-red-700 dark:text-red-300">{error}</p>
             </div>
           </div>
         )}
@@ -62,7 +64,7 @@ export default function Home() {
         {results && <Results results={results} />}
 
         <footer className="mt-16 text-center text-gray-500 dark:text-gray-400 text-sm">
-          <p>Powered by Google Gemini, LangGraph, and Next.js</p>
+          <p>made by - Himanshu singh</p>
         </footer>
       </div>
     </div>
