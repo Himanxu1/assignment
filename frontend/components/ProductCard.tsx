@@ -1,116 +1,208 @@
-'use client';
+"use client";
 
-import { ProductInfo, ExtractedFrame, SegmentedImage, EnhancedImage } from '@/lib/types';
+import { ProductInfo, ExtractedFrame, SegmentedImage, EnhancedImage } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 
 interface ProductCardProps {
   product: ProductInfo;
   frame?: ExtractedFrame;
   segmented?: SegmentedImage;
   enhanced: EnhancedImage[];
+  index: number;
 }
 
-export default function ProductCard({ product, frame, segmented, enhanced }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  frame,
+  segmented,
+  enhanced,
+  index,
+}: ProductCardProps) {
+  const confidenceColor =
+    product.confidence >= 80
+      ? "text-emerald-400"
+      : product.confidence >= 50
+      ? "text-primary"
+      : "text-muted-foreground";
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-          {product.name}
-        </h3>
-        <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
-          {product.description}
-        </p>
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Confidence:
+    <div className="border border-border/60 bg-card rounded-lg overflow-hidden flex flex-col">
+      {/* Card top bar */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/40 bg-secondary/20">
+        <div className="flex items-center gap-2">
+          <span className="font-mono-custom text-[9px] text-muted-foreground/40 tracking-[0.3em] uppercase select-none">
+            P–{String(index + 1).padStart(2, "0")}
           </span>
-          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 max-w-xs">
-            <div
-              className="bg-green-500 h-2 rounded-full"
-              style={{ width: `${product.confidence}%` }}
-            ></div>
-          </div>
-          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+          <Separator orientation="vertical" className="h-3 bg-border/60" />
+          <Badge
+            variant="secondary"
+            className="font-mono-custom text-[9px] tracking-widest uppercase border-0 bg-transparent text-muted-foreground/60 px-0"
+          >
+            AI Detected
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`font-mono-custom text-xs font-medium ${confidenceColor}`}>
             {product.confidence}%
+          </span>
+          <span className="font-mono-custom text-[9px] text-muted-foreground/40 tracking-widest uppercase">
+            confidence
           </span>
         </div>
       </div>
 
-      {/* Extracted Frame */}
-      {frame && (
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
-            Extracted Frame
-          </h4>
-          <div className="mb-3">
-            <img
-              src={`data:image/jpeg;base64,${frame.frameBase64}`}
-              alt={`${product.name} frame`}
-              className="w-full rounded-lg"
-            />
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p><strong>Timestamp:</strong> {frame.frameTimestamp}s</p>
-            <p><strong>Reason:</strong> {frame.reason}</p>
-          </div>
-        </div>
-      )}
+      {/* Product info */}
+      <div className="px-5 py-5 border-b border-border/30">
+        <h3 className="font-display text-2xl font-medium text-foreground mb-1.5">
+          {product.name}
+        </h3>
+        <p className="text-muted-foreground text-xs leading-relaxed mb-4">
+          {product.description}
+        </p>
 
-      {/* Segmented Image */}
-      {segmented && (
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
-            Segmented Product
-          </h4>
-          <img
-            src={`data:image/jpeg;base64,${segmented.segmentedBase64}`}
-            alt={`${product.name} segmented`}
-            className="w-full rounded-lg"
+        {/* Confidence bar */}
+        <div className="space-y-1.5">
+          <Progress
+            value={product.confidence}
+            className="h-1 bg-border/60"
           />
         </div>
-      )}
+      </div>
 
-      {/* AI-Generated Enhanced Images */}
-      {enhanced.length > 0 && (
-        <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800">
-          <div className="flex items-center mb-4">
-            <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-              ✨ AI-Enhanced Product Shots
-            </h4>
-            <span className="ml-2 px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full">
-              Gemini 2.5
-            </span>
-          </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
-            Professional product photographs generated by Gemini AI
-          </p>
-          <div className="space-y-4">
-            {enhanced.map((img, idx) => (
-              <div key={idx} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-md">
-                <div className="mb-3">
+      {/* Tabs for frame / segmented / enhanced */}
+      <div className="flex-1 px-5 py-5">
+        {(frame || segmented || enhanced.length > 0) && (
+          <Tabs defaultValue={frame ? "frame" : segmented ? "segmented" : "enhanced"}>
+            <TabsList className="w-full bg-secondary/30 border border-border/40 h-9 mb-5 p-0.5 rounded-md">
+              {frame && (
+                <TabsTrigger
+                  value="frame"
+                  className="flex-1 font-mono-custom text-[9px] tracking-[0.2em] uppercase data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-none rounded-sm h-full"
+                >
+                  Frame
+                </TabsTrigger>
+              )}
+              {segmented && (
+                <TabsTrigger
+                  value="segmented"
+                  className="flex-1 font-mono-custom text-[9px] tracking-[0.2em] uppercase data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-none rounded-sm h-full"
+                >
+                  Segmented
+                </TabsTrigger>
+              )}
+              {enhanced.length > 0 && (
+                <TabsTrigger
+                  value="enhanced"
+                  className="flex-1 font-mono-custom text-[9px] tracking-[0.2em] uppercase data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-none rounded-sm h-full"
+                >
+                  Enhanced
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            {/* ── Extracted Frame ─────────────────────────────── */}
+            {frame && (
+              <TabsContent value="frame" className="mt-0 space-y-3">
+                <div className="relative rounded-md overflow-hidden border border-border/30 bg-background">
                   <img
-                    src={`data:image/jpeg;base64,${img.enhancedBase64}`}
-                    alt={`${product.name} ${img.style}`}
-                    className="w-full rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300"
+                    src={`data:image/jpeg;base64,${frame.frameBase64}`}
+                    alt={`${product.name} extracted frame`}
+                    className="w-full object-cover"
+                  />
+                  {/* Timecode overlay */}
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded border border-border/40">
+                    <span className="font-mono-custom text-[9px] text-primary tracking-widest">
+                      {String(Math.floor(frame.frameTimestamp / 3600)).padStart(2, "0")}:
+                      {String(Math.floor((frame.frameTimestamp % 3600) / 60)).padStart(2, "0")}:
+                      {String(Math.floor(frame.frameTimestamp % 60)).padStart(2, "0")}
+                    </span>
+                  </div>
+                </div>
+                <div className="px-1">
+                  <p className="font-mono-custom text-[9px] text-muted-foreground/50 tracking-[0.15em] uppercase mb-1">
+                    Selection reason
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{frame.reason}</p>
+                </div>
+              </TabsContent>
+            )}
+
+            {/* ── Segmented Image ─────────────────────────────── */}
+            {segmented && (
+              <TabsContent value="segmented" className="mt-0">
+                <div className="rounded-md overflow-hidden border border-border/30 bg-background">
+                  <img
+                    src={`data:image/jpeg;base64,${segmented.segmentedBase64}`}
+                    alt={`${product.name} segmented`}
+                    className="w-full object-cover"
                   />
                 </div>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1 capitalize">
-                      📸 {img.style}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {img.description}
-                    </p>
-                  </div>
-                  <button className="ml-2 px-3 py-1 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors duration-200">
-                    Download
-                  </button>
+                <div className="mt-3 px-1">
+                  <p className="font-mono-custom text-[9px] text-muted-foreground/40 tracking-[0.15em] uppercase">
+                    Background removed · AI segmentation
+                  </p>
                 </div>
-              </div>
-            ))}
+              </TabsContent>
+            )}
+
+            {/* ── Enhanced Images ─────────────────────────────── */}
+            {enhanced.length > 0 && (
+              <TabsContent value="enhanced" className="mt-0 space-y-4">
+                {enhanced.map((img, idx) => (
+                  <div key={idx} className="border border-border/30 rounded-md overflow-hidden bg-background">
+                    <div className="relative">
+                      <img
+                        src={`data:image/jpeg;base64,${img.enhancedBase64}`}
+                        alt={`${product.name} ${img.style}`}
+                        className="w-full object-cover"
+                      />
+                      {/* Style badge */}
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded border border-primary/30">
+                        <span className="font-mono-custom text-[9px] text-primary tracking-widest capitalize">
+                          {img.style}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 flex items-start justify-between gap-3">
+                      <p className="text-xs text-muted-foreground leading-relaxed flex-1 line-clamp-2">
+                        {img.description}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 border-border/60 hover:border-primary/50 hover:text-primary font-mono-custom text-[9px] tracking-widest uppercase h-7 px-3"
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Gemini badge */}
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="w-1 h-1 rounded-full bg-primary/60" />
+                  <span className="font-mono-custom text-[9px] text-muted-foreground/40 tracking-[0.2em] uppercase">
+                    Generated by Gemini 2.5
+                  </span>
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
+
+        {/* Empty state */}
+        {!frame && !segmented && enhanced.length === 0 && (
+          <div className="text-center py-8">
+            <p className="font-mono-custom text-[10px] text-muted-foreground/40 tracking-[0.2em] uppercase">
+              No media available for this product
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

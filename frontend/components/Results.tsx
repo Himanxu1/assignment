@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { WorkflowState } from '@/lib/types';
-import ProductCard from './ProductCard';
+import { WorkflowState } from "@/lib/types";
+import ProductCard from "./ProductCard";
+import { Separator } from "@/components/ui/separator";
 
 interface ResultsProps {
   results: WorkflowState;
@@ -10,32 +11,46 @@ interface ResultsProps {
 export default function Results({ results }: ResultsProps) {
   if (!results.products || results.products.length === 0) {
     return (
-      <div className="w-full max-w-3xl mx-auto mt-8">
-        <div className="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
-          <p className="text-yellow-800 dark:text-yellow-200">
-            No products were detected in the video. Please try another video with clearer product visibility.
-          </p>
+      <div className="mt-12 border border-border/40 bg-card rounded-lg px-6 py-8 text-center">
+        <div className="font-mono-custom text-[10px] text-muted-foreground/50 tracking-[0.3em] uppercase mb-3">
+          No results
         </div>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          No products were detected in this video. Try another video with
+          clearer product visibility.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-8">
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-          Extraction Results
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300">
-          Found {results.products.length} product{results.products.length !== 1 ? 's' : ''} in the video
-        </p>
+    <div className="mt-14">
+      {/* Section header */}
+      <div className="flex items-center gap-4 mb-10">
+        <div>
+          <div className="font-mono-custom text-[10px] text-primary tracking-[0.3em] uppercase mb-1">
+            Extraction complete
+          </div>
+          <h2 className="font-display text-3xl font-light text-foreground">
+            {results.products.length} Product{results.products.length !== 1 ? "s" : ""}{" "}
+            <span className="italic text-primary">Found</span>
+          </h2>
+        </div>
+        <Separator className="flex-1 bg-border/40 ml-4" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {results.products.map((product) => {
-          const frame = results.extractedFrames.find(f => f.productId === product.id);
-          const segmented = results.segmentedImages.find(s => s.productId === product.id);
-          const enhanced = results.enhancedImages.filter(e => e.productId === product.id);
+      {/* Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {results.products.map((product, idx) => {
+          const frame = results.extractedFrames.find(
+            (f) => f.productId === product.id
+          );
+          const segmented = results.segmentedImages.find(
+            (s) => s.productId === product.id
+          );
+          const enhanced = results.enhancedImages.filter(
+            (e) => e.productId === product.id
+          );
 
           return (
             <ProductCard
@@ -44,6 +59,7 @@ export default function Results({ results }: ResultsProps) {
               frame={frame}
               segmented={segmented}
               enhanced={enhanced}
+              index={idx}
             />
           );
         })}

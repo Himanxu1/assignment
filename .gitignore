@@ -45,6 +45,9 @@ tmp/
 temp/
 *.tmp
 
+# yt-dlp binary
+backend/yt-dlp-bin
+
 # API Keys (safety)
 **/credentials.json
 **/*.key

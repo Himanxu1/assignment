@@ -2,7 +2,11 @@ import ffmpeg from "fluent-ffmpeg";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { exec } from "child_process";
+import YTDlpWrapLib from "yt-dlp-wrap";
+// yt-dlp-wrap is a CJS module; in ESM context the full module.exports becomes
+// the default import, so the actual class sits on .default.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const YTDlpWrap: typeof YTDlpWrapLib = (YTDlpWrapLib as any).default ?? YTDlpWrapLib;
 
 /**
  * This is vedioProcessor class
@@ -31,23 +35,30 @@ export class VideoProcessor {
 
     const videoId = uuidv4();
     const outputPath = path.join(this.tempDir, `${videoId}.mp4`);
+    const binaryPath = path.resolve("./yt-dlp-bin");
 
-    return new Promise((resolve, reject) => {
-      const command = `yt-dlp -f "bestvideo+bestaudio/best" --merge-output-format mp4 -o "${outputPath}" "${videoUrl}"`;
+    // Download latest yt-dlp binary if not present
+    try {
+      await fs.access(binaryPath);
+    } catch {
+      console.log("Downloading latest yt-dlp binary...");
+      await YTDlpWrap.downloadFromGithub(binaryPath);
+      console.log("yt-dlp binary ready.");
+    }
 
-      console.log("Running:", command);
+    const ytDlp = new YTDlpWrap(binaryPath);
 
-      exec(command, (error, stdout, stderr) => {
-        console.log(stdout);
+    console.log(`Running yt-dlp for: ${videoUrl}`);
 
-        if (error) {
-          console.error("yt-dlp error:", stderr);
-          return reject(new Error(`yt-dlp failed: ${stderr}`));
-        }
+    await ytDlp.execPromise([
+      videoUrl,
+      "-f", "bestvideo+bestaudio/best",
+      "--merge-output-format", "mp4",
+      "-o", outputPath,
+      "--no-update",
+    ]);
 
-        resolve(outputPath);
-      });
-    });
+    return outputPath;
   }
 
   async getVideoDuration(videoPath: string): Promise<number> {
